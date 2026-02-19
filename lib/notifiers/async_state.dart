@@ -7,10 +7,6 @@ class AsyncState<T> {
 
   const AsyncState._({required this.status, this.data, this.error});
 
-  // =====================================================
-  // FACTORIES
-  // =====================================================
-
   const AsyncState.initial() : this._(status: AsyncStatus.initial);
 
   const AsyncState.loading({T? previousData})
@@ -21,10 +17,6 @@ class AsyncState<T> {
 
   const AsyncState.error(String error, {T? previousData})
     : this._(status: AsyncStatus.error, error: error, data: previousData);
-
-  // =====================================================
-  // HELPERS
-  // =====================================================
 
   bool get isInitial => status == AsyncStatus.initial;
   bool get isLoading => status == AsyncStatus.loading;

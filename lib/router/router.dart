@@ -12,20 +12,27 @@ import 'package:provider/provider.dart';
 class AppRouter {
   static GoRouter router(BuildContext context) {
     final auth = context.read<AuthNotifier>();
+    final initializer = context.read<AppInitializerNotifier>();
 
     return GoRouter(
-      refreshListenable: auth,
+      refreshListenable: Listenable.merge([auth, initializer]),
       initialLocation: '/login',
       redirect: (context, state) {
         final isLoggedIn = auth.isLoggedIn;
-        final isInitialized = context.read<AppInitializerNotifier>().isReady;
+        final isInitialized = initializer.isReady;
+
         final isAuthRoute =
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
 
+        final isSplashRoute = state.matchedLocation == '/splash';
+
         if (!isLoggedIn && !isAuthRoute) return '/login';
-        if (isLoggedIn && !isInitialized)
-          return '/splash'; // Show splash while initializing
+
+        if (isLoggedIn && !isInitialized) return '/splash';
+
+        if (isLoggedIn && isInitialized && isSplashRoute) return '/home';
+
         if (isLoggedIn && isInitialized && isAuthRoute) return '/home';
 
         return null;

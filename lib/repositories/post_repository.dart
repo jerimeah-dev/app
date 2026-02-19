@@ -16,10 +16,6 @@ class PostRepository {
     this._postImageService,
   );
 
-  // =========================================================
-  // READ - Fetch posts (limit + offset for infinite scroll)
-  // =========================================================
-
   Future<List<PostModel>> fetchPosts({
     required int limit,
     required int offset,
@@ -29,18 +25,10 @@ class PostRepository {
     return data.map((e) => PostModel.fromJson(e)).toList();
   }
 
-  // =========================================================
-  // READ - Fetch single post
-  // =========================================================
-
   Future<PostModel> fetchPostById(String postId) async {
     final data = await _postService.fetchPostById(postId);
     return PostModel.fromJson(data);
   }
-
-  // =========================================================
-  // CREATE - Post with images
-  // =========================================================
 
   Future<PostModel> createPost({
     required String authorId,
@@ -48,7 +36,6 @@ class PostRepository {
     required String content,
     required List<File> images,
   }) async {
-    // 1️⃣ Create post first
     final post = await _postService.createPost(
       authorId: authorId,
       title: title,
@@ -57,7 +44,6 @@ class PostRepository {
 
     final postId = post['id'] as String;
 
-    // 2️⃣ Upload images
     for (final file in images) {
       final path = '$postId/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
@@ -70,13 +56,8 @@ class PostRepository {
       await _postImageService.insertPostImage(postId: postId, url: url);
     }
 
-    // 3️⃣ Return fresh joined post
     return await fetchPostById(postId);
   }
-
-  // =========================================================
-  // UPDATE - Post (optionally replace images)
-  // =========================================================
 
   Future<PostModel> updatePost({
     required String postId,
@@ -85,12 +66,8 @@ class PostRepository {
     List<String>? imageIdsToDelete,
     List<File>? newImages,
   }) async {
-    // 1️⃣ Update text fields
     await _postService.updatePost(postId, {'title': title, 'content': content});
 
-    // =========================================================
-    // 2️⃣ Delete selected images
-    // =========================================================
     if (imageIdsToDelete != null && imageIdsToDelete.isNotEmpty) {
       final images = await _postImageService.fetchImagesByPostId(postId);
 
@@ -121,9 +98,6 @@ class PostRepository {
       }
     }
 
-    // =========================================================
-    // 3️⃣ Add new images
-    // =========================================================
     if (newImages != null && newImages.isNotEmpty) {
       await Future.wait(
         newImages.map((file) async {
@@ -142,9 +116,6 @@ class PostRepository {
 
     return await fetchPostById(postId);
   }
-  // =========================================================
-  // DELETE - Post (with storage cleanup)
-  // =========================================================
 
   Future<void> deletePost(String postId) async {
     // 1️⃣ Fetch image records

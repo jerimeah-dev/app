@@ -20,18 +20,14 @@ class PostNotifier extends ChangeNotifier {
 
   final List<PostModel> _posts = [];
 
-  List<PostModel> get posts => List.unmodifiable(_posts);
+  List<PostModel> get posts => _posts;
   bool get hasMore => _hasMore;
   bool get isFetchingMore => _isFetchingMore;
   bool get isCreating => _isCreating;
 
-  // =====================================================
-  // INITIAL LOAD
-  // =====================================================
   Future<void> loadInitial() async {
     state = const AsyncState.loading();
     notifyListeners();
-
     try {
       _offset = 0;
       _hasMore = true;
@@ -46,7 +42,7 @@ class PostNotifier extends ChangeNotifier {
         _hasMore = false;
       }
 
-      state = AsyncState.success(List.unmodifiable(_posts));
+      state = AsyncState.success(_posts);
     } catch (e) {
       state = AsyncState.error(e.toString());
     }
@@ -54,9 +50,6 @@ class PostNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  // =====================================================
-  // LOAD MORE
-  // =====================================================
   Future<void> loadMore() async {
     if (!_hasMore || _isFetchingMore) return;
 
@@ -112,7 +105,7 @@ class PostNotifier extends ChangeNotifier {
       // Insert at top (DO NOT modify offset)
       _posts.insert(0, newPost);
 
-      state = AsyncState.success(List.unmodifiable(_posts));
+      state = AsyncState.success(_posts);
     } catch (e) {
       state = AsyncState.error(e.toString());
     }

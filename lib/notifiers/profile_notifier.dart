@@ -19,7 +19,7 @@ class ProfileNotifier extends ChangeNotifier {
   Future<void> initialize(UserModel currentUser) async {
     state = const AsyncState.loading();
     notifyListeners();
-
+    // await Future.delayed(const Duration(seconds: 3));
     _user = currentUser;
 
     state = AsyncState.success(_user);

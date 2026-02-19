@@ -14,9 +14,6 @@ class AuthNotifier extends ChangeNotifier {
 
   bool get isLoggedIn => state.isSuccess && currentUser != null;
 
-  // =====================================================
-  // REGISTER
-  // =====================================================
   Future<void> register({
     required String email,
     required String password,
@@ -40,9 +37,6 @@ class AuthNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  // =====================================================
-  // LOGIN
-  // =====================================================
   Future<void> login({required String email, required String password}) async {
     state = const AsyncState.loading();
     notifyListeners();
@@ -59,9 +53,6 @@ class AuthNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
   Future<void> logout() async {
     await _repository.logout();
     state = const AsyncState.initial();

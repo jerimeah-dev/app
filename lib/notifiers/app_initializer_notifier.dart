@@ -23,12 +23,14 @@ class AppInitializerNotifier extends ChangeNotifier {
     _isReady = false;
     notifyListeners();
 
-    await Future.wait([
-      profile.initialize(auth.currentUser!),
-      post.loadInitial(),
-    ]);
-
-    if (!hasListeners) return; // safety guard
+    try {
+      await Future.wait([
+        profile.initialize(auth.currentUser!),
+        post.loadInitial(),
+      ]);
+    } catch (e) {
+      debugPrint('Initialization error: $e');
+    }
 
     _isReady = true;
     notifyListeners();

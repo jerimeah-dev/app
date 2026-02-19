@@ -44,9 +44,6 @@ class CommentService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // =========================================================
-  // READ - Single
-  // =========================================================
   Future<Map<String, dynamic>> fetchCommentById(String id) async {
     final response = await _client
         .from('comments_jeremiah')
@@ -57,9 +54,6 @@ class CommentService {
     return response;
   }
 
-  // =========================================================
-  // CREATE
-  // =========================================================
   Future<Map<String, dynamic>> createComment({
     required String postId,
     required String authorId,
@@ -74,16 +68,10 @@ class CommentService {
     return response;
   }
 
-  // =========================================================
-  // UPDATE
-  // =========================================================
   Future<void> updateComment(String id, Map<String, dynamic> data) async {
     await _client.from('comments_jeremiah').update(data).eq('id', id);
   }
 
-  // =========================================================
-  // DELETE
-  // =========================================================
   Future<void> deleteComment(String id) async {
     await _client.from('comments_jeremiah').delete().eq('id', id);
   }

@@ -1,4 +1,5 @@
 import 'package:app/notifiers/app_initializer_notifier.dart';
+import 'package:app/notifiers/post_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +19,7 @@ class HomePage extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final auth = context.read<AuthNotifier>();
+    final post = context.read<PostNotifier>();
 
     return Scaffold(
       appBar: AppBar(

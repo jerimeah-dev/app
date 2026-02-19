@@ -3,9 +3,6 @@ import 'supabase_client.dart';
 class PostService {
   final _client = SupabaseClientProvider.client;
 
-  // =========================================================
-  // READ - Multiple posts (pagination)
-  // =========================================================
   Future<List<Map<String, dynamic>>> fetchPosts({
     required int limit,
     required int offset,
@@ -20,9 +17,6 @@ class PostService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // =========================================================
-  // READ - Single post (MISSING BEFORE)
-  // =========================================================
   Future<Map<String, dynamic>> fetchPostById(String id) async {
     final response = await _client
         .from('posts_jeremiah')
@@ -33,9 +27,6 @@ class PostService {
     return response;
   }
 
-  // =========================================================
-  // CREATE
-  // =========================================================
   Future<Map<String, dynamic>> createPost({
     required String authorId,
     required String title,
@@ -50,23 +41,14 @@ class PostService {
     return response;
   }
 
-  // =========================================================
-  // UPDATE
-  // =========================================================
   Future<void> updatePost(String id, Map<String, dynamic> data) async {
     await _client.from('posts_jeremiah').update(data).eq('id', id);
   }
 
-  // =========================================================
-  // DELETE
-  // =========================================================
   Future<void> deletePost(String id) async {
     await _client.from('posts_jeremiah').delete().eq('id', id);
   }
 
-  // =========================================================
-  // Shared Select Query (CLEANER)
-  // =========================================================
   static const String _postSelectQuery = '''
     id,
     title,

@@ -96,7 +96,6 @@ class _ProfileAvatarSection extends StatelessWidget {
         final user = data.user;
         final isUploading = data.uploading;
 
-        // Initial load (no user yet)
         if (user == null) {
           return const Center(child: AppShimmer(height: 120, width: 120));
         }
