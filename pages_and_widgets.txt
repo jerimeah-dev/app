@@ -1,0 +1,366 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+
+import '../notifiers/auth_notifier.dart';
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthNotifier>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Home"),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await auth.logout();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => context.go('/profile'),
+          child: const Text("Go to Profile"),
+        ),
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+
+import '../notifiers/auth_notifier.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthNotifier>();
+    final state = auth.state;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(
+              controller: _email,
+              decoration: const InputDecoration(labelText: "Email"),
+            ),
+            TextField(
+              controller: _password,
+              decoration: const InputDecoration(labelText: "Password"),
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
+
+            if (state.isLoading) const CircularProgressIndicator(),
+
+            if (state.isError)
+              Text(
+                state.error ?? '',
+                style: const TextStyle(color: Colors.red),
+              ),
+
+            ElevatedButton(
+              onPressed: () async {
+                await auth.login(
+                  email: _email.text.trim(),
+                  password: _password.text.trim(),
+                );
+              },
+              child: const Text("Login"),
+            ),
+
+            TextButton(
+              onPressed: () => context.go('/register'),
+              child: const Text("Create account"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../notifiers/auth_notifier.dart';
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _displayName = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthNotifier>();
+    final state = auth.state;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Register")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(
+              controller: _displayName,
+              decoration: const InputDecoration(labelText: "Display Name"),
+            ),
+            TextField(
+              controller: _email,
+              decoration: const InputDecoration(labelText: "Email"),
+            ),
+            TextField(
+              controller: _password,
+              decoration: const InputDecoration(labelText: "Password"),
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
+
+            if (state.isLoading) const CircularProgressIndicator(),
+
+            if (state.isError)
+              Text(
+                state.error ?? '',
+                style: const TextStyle(color: Colors.red),
+              ),
+
+            ElevatedButton(
+              onPressed: () async {
+                await auth.register(
+                  email: _email.text.trim(),
+                  password: _password.text.trim(),
+                  displayName: _displayName.text.trim(),
+                );
+              },
+              child: const Text("Register"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../notifiers/auth_notifier.dart';
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _displayName = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthNotifier>();
+    final state = auth.state;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Register")),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(
+              controller: _displayName,
+              decoration: const InputDecoration(labelText: "Display Name"),
+            ),
+            TextField(
+              controller: _email,
+              decoration: const InputDecoration(labelText: "Email"),
+            ),
+            TextField(
+              controller: _password,
+              decoration: const InputDecoration(labelText: "Password"),
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
+
+            if (state.isLoading) const CircularProgressIndicator(),
+
+            if (state.isError)
+              Text(
+                state.error ?? '',
+                style: const TextStyle(color: Colors.red),
+              ),
+
+            ElevatedButton(
+              onPressed: () async {
+                await auth.register(
+                  email: _email.text.trim(),
+                  password: _password.text.trim(),
+                  displayName: _displayName.text.trim(),
+                );
+              },
+              child: const Text("Register"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+import 'package:app/notifiers/auth_notifier.dart';
+import 'package:app/pages/home_page.dart';
+import 'package:app/pages/login_page.dart';
+import 'package:app/pages/profile_page.dart';
+import 'package:app/pages/register_page.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+class AppRouter {
+  static GoRouter router(BuildContext context) {
+    final auth = context.read<AuthNotifier>();
+
+    return GoRouter(
+      refreshListenable: auth,
+      initialLocation: '/login',
+      redirect: (context, state) {
+        final isLoggedIn = auth.isLoggedIn;
+        final isAuthRoute =
+            state.matchedLocation == '/login' ||
+            state.matchedLocation == '/register';
+
+        // Not logged in → block protected routes
+        if (!isLoggedIn && !isAuthRoute) {
+          return '/login';
+        }
+
+        // Logged in → block login/register
+        if (isLoggedIn && isAuthRoute) {
+          return '/home';
+        }
+
+        return null;
+      },
+      routes: [
+        GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
+        GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
+        GoRoute(path: '/home', builder: (_, __) => const HomePage()),
+        GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+      ],
+    );
+  }
+}
+import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+
+class AppShimmer extends StatelessWidget {
+  final double height;
+  final double width;
+  final BorderRadius borderRadius;
+
+  const AppShimmer({
+    super.key,
+    required this.height,
+    required this.width,
+    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: borderRadius,
+        ),
+      ),
+    );
+  }
+}
+
+
+import 'package:app/notifiers/profile_notifier.dart';
+import 'package:app/repositories/user_repository.dart';
+import 'package:app/router/router.dart';
+import 'package:app/services/storage_service.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'repositories/auth_repository.dart';
+import 'services/user_service.dart';
+import 'notifiers/auth_notifier.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'http://study-supabase-20c378-167-88-45-173.traefik.me',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzA5NTA3ODgsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6ImFub24iLCJpc3MiOiJzdXBhYmFzZSJ9.xbUmbbWt1CBMd2JpnkL24A54Sa25OgRCjkcsB-odlh4',
+  );
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AuthNotifier(AuthRepository(UserService())),
+        ),
+        ChangeNotifierProvider(
+          create: (_) =>
+              ProfileNotifier(UserRepository(UserService(), StorageService())),
+        ),
+      ],
+      child: const AppRoot(),
+    );
+  }
+}
+
+class AppRoot extends StatelessWidget {
+  const AppRoot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      routerConfig: AppRouter.router(context),
+    );
+  }
+}

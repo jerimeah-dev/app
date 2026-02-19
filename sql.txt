@@ -1,0 +1,204 @@
+-- =========================================
+-- EXTENSIONS
+-- =========================================
+create extension if not exists "uuid-ossp";
+
+-- =========================================
+-- DROP TABLES (ORDER MATTERS)
+-- =========================================
+drop table if exists reactions_jeremiah cascade;
+drop table if exists comment_images_jeremiah cascade;
+drop table if exists comments_jeremiah cascade;
+drop table if exists posts_image cascade;
+drop table if exists posts_jeremiah cascade;
+drop table if exists users_jeremiah cascade;
+
+-- =========================================
+-- USERS TABLE (AUTH + PROFILE)
+-- =========================================
+create table users_jeremiah (
+  id uuid primary key default uuid_generate_v4(),
+  email text unique not null,
+  password_hash text not null,
+  display_name text not null,
+  avatar_url text,
+  bio text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- =========================================
+-- POSTS
+-- =========================================
+create table posts_jeremiah (
+  id uuid primary key default uuid_generate_v4(),
+  author_id uuid not null references users_jeremiah(id) on delete cascade,
+  title text not null,
+  content text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index idx_posts_author on posts_jeremiah(author_id);
+create index idx_posts_created_at on posts_jeremiah(created_at desc);
+
+-- =========================================
+-- POST IMAGES
+-- =========================================
+create table posts_image (
+  id uuid primary key default uuid_generate_v4(),
+  post_id uuid not null references posts_jeremiah(id) on delete cascade,
+  url text not null
+);
+
+create index idx_post_images_post on posts_image(post_id);
+
+-- =========================================
+-- COMMENTS
+-- =========================================
+create table comments_jeremiah (
+  id uuid primary key default uuid_generate_v4(),
+  post_id uuid not null references posts_jeremiah(id) on delete cascade,
+  author_id uuid not null references users_jeremiah(id) on delete cascade,
+  content text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index idx_comments_post on comments_jeremiah(post_id);
+create index idx_comments_author on comments_jeremiah(author_id);
+
+-- =========================================
+-- COMMENT IMAGES
+-- =========================================
+create table comment_images_jeremiah (
+  id uuid primary key default uuid_generate_v4(),
+  comment_id uuid not null references comments_jeremiah(id) on delete cascade,
+  url text not null
+);
+
+create index idx_comment_images_comment on comment_images_jeremiah(comment_id);
+
+-- =========================================
+-- REACTIONS
+-- =========================================
+create table reactions_jeremiah (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references users_jeremiah(id) on delete cascade,
+  post_id uuid references posts_jeremiah(id) on delete cascade,
+  comment_id uuid references comments_jeremiah(id) on delete cascade,
+  reaction_type text not null,
+  created_at timestamptz default now(),
+  constraint only_one_target check (
+    (post_id is not null and comment_id is null)
+    or
+    (post_id is null and comment_id is not null)
+  )
+);
+
+create index idx_reactions_post on reactions_jeremiah(post_id);
+create index idx_reactions_comment on reactions_jeremiah(comment_id);
+create index idx_reactions_user on reactions_jeremiah(user_id);
+
+-- =========================================
+-- DISABLE RLS ON ALL TABLES
+-- =========================================
+alter table users_jeremiah disable row level security;
+alter table posts_jeremiah disable row level security;
+alter table posts_image disable row level security;
+alter table comments_jeremiah disable row level security;
+alter table comment_images_jeremiah disable row level security;
+alter table reactions_jeremiah disable row level security;
+
+-- =========================================
+-- STORAGE BUCKET RESET
+-- =========================================
+-- Delete buckets if they exist
+delete from storage.buckets where id = 'avatars';
+delete from storage.buckets where id = 'post-images';
+delete from storage.buckets where id = 'comment-images';
+
+-- Create buckets
+insert into storage.buckets (id, name, public)
+values
+  ('avatars', 'avatars', true),
+  ('post-images', 'post-images', true),
+  ('comment-images', 'comment-images', true);
+
+-- Disable RLS for storage.objects (optional full open mode)
+alter table storage.objects disable row level security;
+
+-- =========================================
+-- DONE
+-- =========================================
+
+
+
+-- =========================================
+-- 1️⃣ PREVENT DUPLICATE REACTIONS
+-- =========================================
+
+-- Prevent duplicate reaction per user per post
+create unique index if not exists ux_reactions_user_post
+on reactions_jeremiah(user_id, post_id)
+where post_id is not null;
+
+-- Prevent duplicate reaction per user per comment
+create unique index if not exists ux_reactions_user_comment
+on reactions_jeremiah(user_id, comment_id)
+where comment_id is not null;
+
+
+-- =========================================
+-- 2️⃣ BETTER PAGINATION INDEXES
+-- =========================================
+
+-- Composite index for feed pagination
+create index if not exists idx_posts_created_id
+on posts_jeremiah(created_at desc, id desc);
+
+create index if not exists idx_comments_created_id
+on comments_jeremiah(created_at desc, id desc);
+
+
+-- =========================================
+-- 3️⃣ AUTO UPDATE updated_at COLUMN
+-- =========================================
+
+-- Create reusable trigger function
+create or replace function set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+
+-- USERS trigger
+drop trigger if exists trg_users_updated on users_jeremiah;
+create trigger trg_users_updated
+before update on users_jeremiah
+for each row
+execute function set_updated_at();
+
+
+-- POSTS trigger
+drop trigger if exists trg_posts_updated on posts_jeremiah;
+create trigger trg_posts_updated
+before update on posts_jeremiah
+for each row
+execute function set_updated_at();
+
+
+-- COMMENTS trigger
+drop trigger if exists trg_comments_updated on comments_jeremiah;
+create trigger trg_comments_updated
+before update on comments_jeremiah
+for each row
+execute function set_updated_at();
+
+
+-- =========================================
+-- DONE
+-- =========================================

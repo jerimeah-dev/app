@@ -1,0 +1,288 @@
+class UserModel {
+  final String id;
+  final String email;
+  final String displayName;
+  final String? avatarUrl;
+  final String? bio;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const UserModel({
+    required this.id,
+    required this.email,
+    required this.displayName,
+    this.avatarUrl,
+    this.bio,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      id: json['id'],
+      email: json['email'] ?? '',
+      displayName: json['display_name'],
+      avatarUrl: json['avatar_url'],
+      bio: json['bio'],
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'display_name': displayName,
+      'avatar_url': avatarUrl,
+      'bio': bio,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bio: bio ?? this.bio,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+
+import 'package:flutter/material.dart';
+import '../repositories/auth_repository.dart';
+import '../models/user_model.dart';
+import 'async_state.dart';
+
+class AuthNotifier extends ChangeNotifier {
+  final AuthRepository _repository;
+
+  AuthNotifier(this._repository);
+
+  AsyncState<UserModel?> state = const AsyncState.initial();
+
+  UserModel? get currentUser => _repository.currentUser;
+
+  bool get isLoggedIn => state.isSuccess && currentUser != null;
+
+  // =====================================================
+  // REGISTER
+  // =====================================================
+  Future<void> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final user = await _repository.register(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+
+      state = AsyncState.success(user);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // LOGIN
+  // =====================================================
+  Future<void> login({required String email, required String password}) async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final user = await _repository.login(email: email, password: password);
+
+      state = AsyncState.success(user);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+  Future<void> logout() async {
+    await _repository.logout();
+    state = const AsyncState.initial();
+    notifyListeners();
+  }
+}
+
+import 'package:app/widgets/user_avatar.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../notifiers/auth_notifier.dart';
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthNotifier>();
+    final user = auth.currentUser;
+
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text("No user data")));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Profile"),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await auth.logout();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            UserAvatar(user: user, size: 24),
+            const SizedBox(height: 20),
+            Text(
+              user.displayName ?? '',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(user.email ?? ''),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+import 'dart:io';
+
+import '../models/user_model.dart';
+import '../services/user_service.dart';
+import '../services/storage_service.dart';
+
+class UserRepository {
+  final UserService _userService;
+  final StorageService _storageService;
+
+  UserRepository(this._userService, this._storageService);
+
+  Future<UserModel> updateProfile({
+    required String userId,
+    String? displayName,
+    String? bio,
+  }) async {
+    await _userService.updateUser(userId, {
+      if (displayName != null) 'display_name': displayName,
+      if (bio != null) 'bio': bio,
+    });
+
+    final updated = await _userService.getUserById(userId);
+    return UserModel.fromJson(updated!);
+  }
+
+  Future<String> uploadAvatar({
+    required String userId,
+    required File file,
+  }) async {
+    final path = '$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+    final url = await _storageService.uploadFile(
+      bucket: 'avatars',
+      path: path,
+      file: file,
+    );
+
+    await _userService.updateUser(userId, {'avatar_url': url});
+
+    return url;
+  }
+}
+import 'supabase_client.dart';
+
+class UserService {
+  final _client = SupabaseClientProvider.client;
+
+  static const String _selectFields = '''
+    id,
+    email,
+    password_hash,
+    display_name,
+    avatar_url,
+    bio,
+    created_at,
+    updated_at
+  ''';
+
+  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
+    final response = await _client
+        .from('users_jeremiah')
+        .select(_selectFields)
+        .eq('email', email)
+        .maybeSingle();
+
+    return response;
+  }
+
+  Future<Map<String, dynamic>?> getUserById(String id) async {
+    final response = await _client
+        .from('users_jeremiah')
+        .select(_selectFields)
+        .eq('id', id)
+        .maybeSingle();
+
+    return response;
+  }
+
+  Future<Map<String, dynamic>> createUser({
+    required String email,
+    required String passwordHash,
+    required String displayName,
+  }) async {
+    final response = await _client
+        .from('users_jeremiah')
+        .insert({
+          'email': email,
+          'password_hash': passwordHash,
+          'display_name': displayName,
+        })
+        .select(_selectFields)
+        .single();
+
+    return response;
+  }
+
+  Future<void> updateUser(String id, Map<String, dynamic> data) async {
+    await _client.from('users_jeremiah').update(data).eq('id', id);
+  }
+
+  Future<void> deleteUser(String id) async {
+    await _client.from('users_jeremiah').delete().eq('id', id);
+  }
+}

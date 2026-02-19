@@ -1,0 +1,322 @@
+enum AsyncStatus { initial, loading, success, error }
+
+class AsyncState<T> {
+  final AsyncStatus status;
+  final T? data;
+  final String? error;
+
+  const AsyncState._({required this.status, this.data, this.error});
+
+  // =====================================================
+  // FACTORIES
+  // =====================================================
+
+  const AsyncState.initial() : this._(status: AsyncStatus.initial);
+
+  const AsyncState.loading({T? previousData})
+    : this._(status: AsyncStatus.loading, data: previousData);
+
+  const AsyncState.success(T data)
+    : this._(status: AsyncStatus.success, data: data);
+
+  const AsyncState.error(String error, {T? previousData})
+    : this._(status: AsyncStatus.error, error: error, data: previousData);
+
+  // =====================================================
+  // HELPERS
+  // =====================================================
+
+  bool get isInitial => status == AsyncStatus.initial;
+  bool get isLoading => status == AsyncStatus.loading;
+  bool get isSuccess => status == AsyncStatus.success;
+  bool get isError => status == AsyncStatus.error;
+
+  bool get hasData => data != null;
+  bool get hasError => error != null;
+}
+import 'package:flutter/material.dart';
+import '../repositories/auth_repository.dart';
+import '../models/user_model.dart';
+import 'async_state.dart';
+
+class AuthNotifier extends ChangeNotifier {
+  final AuthRepository _repository;
+
+  AuthNotifier(this._repository);
+
+  AsyncState<UserModel?> state = const AsyncState.initial();
+
+  UserModel? get currentUser => _repository.currentUser;
+
+  bool get isLoggedIn => state.isSuccess && currentUser != null;
+
+  // =====================================================
+  // REGISTER
+  // =====================================================
+  Future<void> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final user = await _repository.register(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+
+      state = AsyncState.success(user);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // LOGIN
+  // =====================================================
+  Future<void> login({required String email, required String password}) async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final user = await _repository.login(email: email, password: password);
+
+      state = AsyncState.success(user);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+  Future<void> logout() async {
+    await _repository.logout();
+    state = const AsyncState.initial();
+    notifyListeners();
+  }
+}
+import 'dart:io';
+import 'package:flutter/material.dart';
+import '../models/post_model.dart';
+import '../repositories/post_repository.dart';
+import 'async_state.dart';
+
+class PostNotifier extends ChangeNotifier {
+  final PostRepository _repository;
+
+  PostNotifier(this._repository);
+
+  static const int _limit = 10;
+
+  int _offset = 0;
+  bool _hasMore = true;
+  bool _isFetchingMore = false;
+  bool _isCreating = false;
+
+  AsyncState<List<PostModel>> state = const AsyncState.initial();
+
+  final List<PostModel> _posts = [];
+
+  List<PostModel> get posts => List.unmodifiable(_posts);
+  bool get hasMore => _hasMore;
+  bool get isFetchingMore => _isFetchingMore;
+  bool get isCreating => _isCreating;
+
+  // =====================================================
+  // INITIAL LOAD
+  // =====================================================
+  Future<void> loadInitial() async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      _offset = 0;
+      _hasMore = true;
+      _posts.clear();
+
+      final data = await _repository.fetchPosts(limit: _limit, offset: _offset);
+
+      _posts.addAll(data);
+      _offset += data.length;
+
+      if (data.length < _limit) {
+        _hasMore = false;
+      }
+
+      state = AsyncState.success(List.unmodifiable(_posts));
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  // =====================================================
+  // LOAD MORE
+  // =====================================================
+  Future<void> loadMore() async {
+    if (!_hasMore || _isFetchingMore) return;
+
+    _isFetchingMore = true;
+    notifyListeners();
+
+    try {
+      final data = await _repository.fetchPosts(limit: _limit, offset: _offset);
+
+      if (data.isEmpty) {
+        _hasMore = false;
+      } else {
+        _posts.addAll(data);
+        _offset += data.length;
+
+        if (data.length < _limit) {
+          _hasMore = false;
+        }
+
+        state = AsyncState.success(List.unmodifiable(_posts));
+      }
+    } catch (e) {
+      // Do NOT wipe entire feed on loadMore error
+      debugPrint("Load more error: $e");
+    }
+
+    _isFetchingMore = false;
+    notifyListeners();
+  }
+
+  // =====================================================
+  // CREATE POST
+  // =====================================================
+  Future<void> createPost({
+    required String authorId,
+    required String title,
+    required String content,
+    required List<File> files,
+  }) async {
+    if (_isCreating) return;
+
+    _isCreating = true;
+    notifyListeners();
+
+    try {
+      final newPost = await _repository.createPost(
+        authorId: authorId,
+        title: title,
+        content: content,
+        images: files,
+      );
+
+      // Insert at top (DO NOT modify offset)
+      _posts.insert(0, newPost);
+
+      state = AsyncState.success(List.unmodifiable(_posts));
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    _isCreating = false;
+    notifyListeners();
+  }
+
+  // =====================================================
+  // DELETE POST
+  // =====================================================
+  Future<void> deletePost(String postId) async {
+    try {
+      await _repository.deletePost(postId);
+
+      _posts.removeWhere((p) => p.id == postId);
+
+      state = AsyncState.success(List.unmodifiable(_posts));
+      notifyListeners();
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+      notifyListeners();
+    }
+  }
+
+  // =====================================================
+  // REFRESH
+  // =====================================================
+  Future<void> refresh() async {
+    await loadInitial();
+  }
+}
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import '../models/user_model.dart';
+import '../repositories/user_repository.dart';
+import 'async_state.dart';
+
+class ProfileNotifier extends ChangeNotifier {
+  final UserRepository _repository;
+
+  ProfileNotifier(this._repository);
+
+  AsyncState<UserModel?> state = const AsyncState.initial();
+  UserModel? _user;
+
+  UserModel? get user => _user;
+
+  Future<void> initialize(UserModel currentUser) async {
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    _user = currentUser;
+
+    state = AsyncState.success(_user);
+    notifyListeners();
+  }
+
+  Future<void> updateProfile({
+    required String displayName,
+    required String bio,
+  }) async {
+    if (_user == null) return;
+
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final updated = await _repository.updateProfile(
+        userId: _user!.id,
+        displayName: displayName,
+        bio: bio,
+      );
+
+      _user = updated;
+      state = AsyncState.success(updated);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> updateAvatar(File file) async {
+    if (_user == null) return;
+
+    state = const AsyncState.loading();
+    notifyListeners();
+
+    try {
+      final url = await _repository.uploadAvatar(userId: _user!.id, file: file);
+
+      _user = _user!.copyWith(avatarUrl: url);
+      state = AsyncState.success(_user);
+    } catch (e) {
+      state = AsyncState.error(e.toString());
+    }
+
+    notifyListeners();
+  }
+}
